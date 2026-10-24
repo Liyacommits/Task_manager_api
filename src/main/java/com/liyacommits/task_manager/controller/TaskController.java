@@ -1,6 +1,11 @@
 package com.liyacommits.task_manager.controller;
 
 import com.liyacommits.task_manager.entity.Task;
+import com.liyacommits.task_manager.respository.TaskRepository;
+import com.liyacommits.task_manager.service.TaskService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
@@ -11,41 +16,46 @@ import java.util.List;
 @RequestMapping("/api/v1/tasks")
 public class TaskController {
 
-    private List<Task> tasks = new ArrayList<>();
+    private final TaskService taskService;
     private Long nextId = 1L;
+
+    public TaskController(TaskService taskService) {
+        this.taskService = taskService;
+    }
 
     @GetMapping
     public List<Task> getTasks() {
-        return tasks;
+        return taskService.getAllTasks();
     }
 
     @GetMapping("/{id}")
-    public Task getTask(@PathVariable Long id) {
-        return tasks.stream().filter(task-> task.getId().equals(id)).findFirst().orElse(null);
+    public ResponseEntity<Task> getTask(@PathVariable Long id) {
+        return taskService.getTaskById(id).map(ResponseEntity::ok).orElse(ResponseEntity.notFound().build());
     }
 
     @PostMapping
-    public void addTask(@RequestBody Task task) {
-        task.setId(nextId++);
-        task.setCreatedAt(LocalDateTime.now());
-        task.setCompleted(false);
-        tasks.add(task);
+    public ResponseEntity<Task> addTask(@RequestBody Task task) {
+        Task savedTask = taskService.createTask(task);
+        return ResponseEntity.status(HttpStatus.CREATED).body(savedTask);
     }
 
     @PutMapping("/{id}")
-    public Task updateTask(@PathVariable Long id, @RequestBody Task task) {
-        for  (Task task1 : tasks) {
-            if (task1.getId().equals(id)) {
-                task1.setTitle(task.getTitle());
-                task1.setDescription(task.getDescription());
-                return task1;
-            }
-        }
-        return null;
+    public ResponseEntity<Task> updateTask(@PathVariable Long id, @RequestBody Task updatedTask) {
+        return taskService.updateTask(id, updatedTask).map(ResponseEntity::ok).orElse(ResponseEntity.notFound().build());
     }
 
     @DeleteMapping("/id")
-    public void deleteTask(@PathVariable Long id) {
-        tasks.removeIf(task -> task.getId().equals(id));
+    public ResponseEntity<Void> deleteTask(@PathVariable Long id) {
+        return taskService.deleteTaskById(id) ?  ResponseEntity.ok().build() : ResponseEntity.notFound().build();
+    }
+
+    @GetMapping("/completed/{status}")
+    public List<Task> getCompletedTasks(@PathVariable Boolean status) {
+        return taskService.getTasksByStatus(status);
+    }
+
+    @GetMapping("/search")
+    public List<Task> searchTasks(@RequestParam String title) {
+        return taskService.searchTasks(title);
     }
 }
